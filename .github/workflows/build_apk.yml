@@ -31,20 +31,10 @@ jobs:
           rm -rf clean_app
           flutter create --org com.academic --platforms=android clean_app
           cd clean_app
-
-          # إضافة الحزم
           flutter pub add flutter_local_notifications timezone shared_preferences
-
-          # نسخ كود واجهة التطبيق
           cp -f $GITHUB_WORKSPACE/lib/main.dart lib/main.dart
-
-          # ضبط الأذونات الرسمية داخل AndroidManifest النظيف
           sed -i '/<application/i \    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>\n    <uses-permission android:name="android.permission.VIBRATE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>' android/app/src/main/AndroidManifest.xml
-
-          # البناء المباشر
           flutter build apk --debug
-
-          # نسخ ملف الـ APK النهائي لمنطقة الرفع
           mkdir -p $GITHUB_WORKSPACE/output
           cp build/app/outputs/flutter-apk/app-debug.apk $GITHUB_WORKSPACE/output/Academic-Calendar.apk
 
