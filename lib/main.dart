@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'notification_helper.dart'; // تأكد من إنشاء هذا الملف كما اتفقنا مسبقاً
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(const AcademicCalendarApp());
 }
 
@@ -30,15 +33,15 @@ class Holiday {
   Color get color {
     switch (type) {
       case HolidayType.longWeekend:
-        return const Color(0xFF38BDF8); // أزرق سماوي عصري
+        return const Color(0xFF38BDF8);
       case HolidayType.midTerm:
-        return const Color(0xFFFB923C); // برتقالي هادئ
+        return const Color(0xFFFB923C);
       case HolidayType.national:
-        return const Color(0xFF4ADE80); // أخضر زمردي
+        return const Color(0xFF4ADE80);
       case HolidayType.eid:
-        return const Color(0xFFA855F7); // بنفسجي
+        return const Color(0xFFA855F7);
       case HolidayType.yearEnd:
-        return const Color(0xFFF43F5E); // وردي مميز
+        return const Color(0xFFF43F5E);
     }
   }
 
@@ -67,6 +70,9 @@ class AcademicCalendarApp extends StatefulWidget {
 
 class _AcademicCalendarAppState extends State<AcademicCalendarApp> {
   bool isHijri = false;
+  
+  // قائمة لحفظ حالة كل إشعار (مفعل أم لا) بناءً على ترتيب الإجازات
+  late List<bool> activeNotifications;
 
   final List<Holiday> holidays = const [
     Holiday(
@@ -172,8 +178,43 @@ class _AcademicCalendarAppState extends State<AcademicCalendarApp> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // تعيين جميع الإشعارات كغير مفعلة في البداية
+    activeNotifications = List<bool>.filled(holidays.length, false);
+  }
+
+  // دالة لحفظ الإعدادات برمجياً وتطبيقها على خدمة الإشعارات
+  void _saveNotifications() {
+    for (int i = 0; i < holidays.length; i++) {
+      if (activeNotifications[i]) {
+        // إذا كان المفتاح مفعلاً، قم بجدولة الإشعار
+        NotificationService.scheduleHolidayNotification(
+          id: i, // المعرف الفريد للإشعار
+          title: holidays[i].title,
+          body: 'تبدأ الإجازة اليوم! نتمنى لك وقتاً ممتعاً.',
+          scheduledTime: DateTime.now().add(Duration(seconds: 5 + i)), // مؤقت للتجربة
+        );
+      } else {
+        // إذا كان المفتاح مغلقاً، قم بإلغاء الإشعار
+        NotificationService.cancelNotification(i);
+      }
+    }
+    
+    // إظهار رسالة تأكيد للمستخدم
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('تم تثبيت إعدادات الإشعارات بنجاح!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        backgroundColor: const Color(0xFF4ADE80),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final nextHoliday = holidays.first;
+    bool hasInactive = activeNotifications.contains(false);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -185,138 +226,128 @@ class _AcademicCalendarAppState extends State<AcademicCalendarApp> {
       home: Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF1E293B),
-            elevation: 0,
-            title: const Text(
-              'التقويم الأكاديمي 1448 - 1449هـ',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-            ),
-            actions: [
-              // زر التحويل بين الهجري والميلادي
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF334155),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+          body: CustomScrollView(
+            slivers: [
+              // التقويم العلوي المرن
+              SliverAppBar(
+                expandedHeight: 220.0,
+                floating: false,
+                pinned: true,
+                backgroundColor: const Color(0xFF1E293B),
+                flexibleSpace: FlexibleSpaceBar(
+                  title: const Text(
+                    'التقويم الأكاديمي 1448 - 1449 هـ',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                  icon: const Icon(Icons.sync_alt, size: 16, color: Color(0xFF38BDF8)),
-                  label: Text(
-                    isHijri ? 'هجري' : 'ميلادي',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  background: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 30),
+                      Text('اليوم: ${DateTime.now().toString().substring(0, 10)}',
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      const Text('لا توجد إجازة هذا الأسبوع',
+                          style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    ],
                   ),
-                  onPressed: () {
-                    setState(() {
-                      isHijri = !isHijri;
-                    });
-                  },
                 ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF334155),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      icon: const Icon(Icons.sync_alt, size: 16, color: Color(0xFF38BDF8)),
+                      label: Text(
+                        isHijri ? 'هجري' : 'ميلادي',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          isHijri = !isHijri;
+                        });
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            children: [
-              // البطاقة العلوية التفاعلية
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF4338CA).withOpacity(0.25),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+              
+              // لوحة التحكم المجمعة للإشعارات
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white12),
                     ),
-                  ],
-                  border: Border.all(color: const Color(0xFF4338CA).withOpacity(0.5)),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Text(
-                        'الإجازة القادمة',
-                        style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      nextHoliday.title,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'متبقي ${nextHoliday.daysRemaining} يوم',
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFFBBF24),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Column(
-                            children: [
-                              const Text('البداية', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                              const SizedBox(height: 2),
-                              Text(
-                                isHijri ? nextHoliday.hijriStart : nextHoliday.gregorianStart,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              activeNotifications = List<bool>.filled(holidays.length, hasInactive);
+                            });
+                          },
+                          icon: Icon(
+                            hasInactive ? Icons.notifications_active : Icons.notifications_off,
+                            color: hasInactive ? Colors.amber : Colors.redAccent,
                           ),
-                          Container(width: 1, height: 26, color: Colors.white12),
-                          Column(
-                            children: [
-                              const Text('العودة للدراسة', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                              const SizedBox(height: 2),
-                              Text(
-                                isHijri ? nextHoliday.hijriReturn : nextHoliday.gregorianReturn,
-                                style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ],
+                          label: Text(
+                            hasInactive ? 'تحديد الكل' : 'إلغاء الكل',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4ADE80),
+                            foregroundColor: const Color(0xFF0F172A),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _saveNotifications,
+                          icon: const Icon(Icons.check_circle),
+                          label: const Text('تثبيت', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'جدول الإجازات الرسمية',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 12),
 
-              // بطاقات الإجازات مع الترميز اللوني
-              ...holidays.map((h) => HolidayTile(holiday: h, isHijri: isHijri)),
+              // القائمة الكاملة للبطاقات في الأسفل
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      return HolidayTile(
+                        holiday: holidays[index],
+                        isHijri: isHijri,
+                        isActive: activeNotifications[index],
+                        onToggle: () {
+                          // تغيير لون الجرس فقط دون تنفيذ البرمجة حتى يتم ضغط "تثبيت"
+                          setState(() {
+                            activeNotifications[index] = !activeNotifications[index];
+                          });
+                        },
+                      );
+                    },
+                    childCount: holidays.length,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -328,8 +359,16 @@ class _AcademicCalendarAppState extends State<AcademicCalendarApp> {
 class HolidayTile extends StatelessWidget {
   final Holiday holiday;
   final bool isHijri;
+  final bool isActive;
+  final VoidCallback onToggle;
 
-  const HolidayTile({super.key, required this.holiday, required this.isHijri});
+  const HolidayTile({
+    super.key,
+    required this.holiday,
+    required this.isHijri,
+    required this.isActive,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -354,9 +393,13 @@ class HolidayTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // زر الجرس يتغير لونه بصرياً فقط بناءً على خيارك
             IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.white38),
-              onPressed: () {},
+              icon: Icon(
+                isActive ? Icons.notifications_active : Icons.notifications_none,
+                color: isActive ? Colors.amber : Colors.white38,
+              ),
+              onPressed: onToggle,
             ),
             const SizedBox(width: 8),
             Expanded(
