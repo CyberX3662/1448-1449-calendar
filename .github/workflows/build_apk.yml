@@ -28,7 +28,7 @@ jobs:
       - name: Recreate Clean Android Project
         run: |
           rm -rf android
-          flutter create --platforms=android --org com.academic .
+          flutter create --platforms=android --project-name academic_calendar --org com.academic .
 
       - name: Configure Android Permissions
         run: |
