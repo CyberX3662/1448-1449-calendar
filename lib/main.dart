@@ -1,201 +1,427 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
-import 'package:shared_preferences/shared_preferences.dart';
 
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  tz.initializeTimeZones();
-  const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+void main() {
   runApp(const AcademicCalendarApp());
 }
 
-class AcademicCalendarApp extends StatelessWidget {
+enum HolidayType { longWeekend, midTerm, national, eid, yearEnd }
+
+class Holiday {
+  final String title;
+  final String gregorianStart;
+  final String hijriStart;
+  final String gregorianReturn;
+  final String hijriReturn;
+  final String duration;
+  final int daysRemaining;
+  final HolidayType type;
+
+  const Holiday({
+    required this.title,
+    required this.gregorianStart,
+    required this.hijriStart,
+    required this.gregorianReturn,
+    required this.hijriReturn,
+    required this.duration,
+    required this.daysRemaining,
+    required this.type,
+  });
+
+  Color get color {
+    switch (type) {
+      case HolidayType.longWeekend:
+        return const Color(0xFF38BDF8); // أزرق سماوي عصري
+      case HolidayType.midTerm:
+        return const Color(0xFFFB923C); // برتقالي هادئ
+      case HolidayType.national:
+        return const Color(0xFF4ADE80); // أخضر زمردي
+      case HolidayType.eid:
+        return const Color(0xFFA855F7); // بنفسجي
+      case HolidayType.yearEnd:
+        return const Color(0xFFF43F5E); // وردي مميز
+    }
+  }
+
+  String get typeName {
+    switch (type) {
+      case HolidayType.longWeekend:
+        return 'عطلة مطولة';
+      case HolidayType.midTerm:
+        return 'إجازة فصلية';
+      case HolidayType.national:
+        return 'مناسبة وطنية';
+      case HolidayType.eid:
+        return 'إجازة عيد';
+      case HolidayType.yearEnd:
+        return 'نهاية العام';
+    }
+  }
+}
+
+class AcademicCalendarApp extends StatefulWidget {
   const AcademicCalendarApp({super.key});
+
+  @override
+  State<AcademicCalendarApp> createState() => _AcademicCalendarAppState();
+}
+
+class _AcademicCalendarAppState extends State<AcademicCalendarApp> {
+  bool isHijri = false;
+
+  final List<Holiday> holidays = const [
+    Holiday(
+      title: 'إجازة نهاية أسبوع مطولة',
+      gregorianStart: '07-10-2026',
+      hijriStart: '26-04-1448 هـ',
+      gregorianReturn: '11-10-2026',
+      hijriReturn: '30-04-1448 هـ',
+      duration: 'يومان',
+      daysRemaining: 13,
+      type: HolidayType.longWeekend,
+    ),
+    Holiday(
+      title: 'إجازة نهاية أسبوع مطولة',
+      gregorianStart: '08-11-2026',
+      hijriStart: '28-05-1448 هـ',
+      gregorianReturn: '10-11-2026',
+      hijriReturn: '01-06-1448 هـ',
+      duration: 'يوم واحد',
+      daysRemaining: 45,
+      type: HolidayType.longWeekend,
+    ),
+    Holiday(
+      title: 'إجازة منتصف الفصل الأول (الخريف)',
+      gregorianStart: '19-11-2026',
+      hijriStart: '10-06-1448 هـ',
+      gregorianReturn: '29-11-2026',
+      hijriReturn: '20-06-1448 هـ',
+      duration: '10 أيام',
+      daysRemaining: 56,
+      type: HolidayType.midTerm,
+    ),
+    Holiday(
+      title: 'إجازة منتصف العام الدراسي',
+      gregorianStart: '07-01-2027',
+      hijriStart: '29-07-1448 هـ',
+      gregorianReturn: '17-01-2027',
+      hijriReturn: '09-08-1448 هـ',
+      duration: '10 أيام',
+      daysRemaining: 105,
+      type: HolidayType.midTerm,
+    ),
+    Holiday(
+      title: 'إجازة نهاية أسبوع مطولة',
+      gregorianStart: '07-02-2027',
+      hijriStart: '01-09-1448 هـ',
+      gregorianReturn: '10-02-2027',
+      hijriReturn: '04-09-1448 هـ',
+      duration: 'يومان',
+      daysRemaining: 136,
+      type: HolidayType.longWeekend,
+    ),
+    Holiday(
+      title: 'إجازة يوم التأسيس',
+      gregorianStart: '21-02-2027',
+      hijriStart: '15-09-1448 هـ',
+      gregorianReturn: '23-02-2027',
+      hijriReturn: '17-09-1448 هـ',
+      duration: 'يومان',
+      daysRemaining: 150,
+      type: HolidayType.national,
+    ),
+    Holiday(
+      title: 'إجازة عيد الفطر المبارك',
+      gregorianStart: '25-02-2027',
+      hijriStart: '19-09-1448 هـ',
+      gregorianReturn: '14-03-2027',
+      hijriReturn: '06-10-1448 هـ',
+      duration: '17 يوماً',
+      daysRemaining: 154,
+      type: HolidayType.eid,
+    ),
+    Holiday(
+      title: 'إجازة نهاية أسبوع مطولة',
+      gregorianStart: '15-04-2027',
+      hijriStart: '09-11-1448 هـ',
+      gregorianReturn: '18-04-2027',
+      hijriReturn: '12-11-1448 هـ',
+      duration: 'يوم واحد',
+      daysRemaining: 203,
+      type: HolidayType.longWeekend,
+    ),
+    Holiday(
+      title: 'إجازة عيد الأضحى المبارك',
+      gregorianStart: '06-05-2027',
+      hijriStart: '30-11-1448 هـ',
+      gregorianReturn: '23-05-2027',
+      hijriReturn: '17-12-1448 هـ',
+      duration: '17 يوماً',
+      daysRemaining: 224,
+      type: HolidayType.eid,
+    ),
+    Holiday(
+      title: 'إجازة نهاية العام الدراسي 1448هـ',
+      gregorianStart: '17-06-2027',
+      hijriStart: '12-01-1449 هـ',
+      gregorianReturn: 'بداية العام الجديد',
+      hijriReturn: 'بداية العام الجديد',
+      duration: 'إجازة نهاية العام',
+      daysRemaining: 266,
+      type: HolidayType.yearEnd,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final nextHoliday = holidays.first;
+
     return MaterialApp(
-      title: 'التقويم الأكاديمي',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF020617),
-        cardColor: const Color(0xFF0F172A),
-        colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), secondary: Color(0xFFF59E0B)),
+      title: 'التقويم الأكاديمي',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
       ),
-      home: const Directionality(textDirection: TextDirection.rtl, child: HomeScreen()),
+      home: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF1E293B),
+            elevation: 0,
+            title: const Text(
+              'التقويم الأكاديمي 1448 - 1449هـ',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
+            actions: [
+              // زر التحويل بين الهجري والميلادي
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFF334155),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  icon: const Icon(Icons.sync_alt, size: 16, color: Color(0xFF38BDF8)),
+                  label: Text(
+                    isHijri ? 'هجري' : 'ميلادي',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isHijri = !isHijri;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            children: [
+              // البطاقة العلوية التفاعلية
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4338CA).withOpacity(0.25),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFF4338CA).withOpacity(0.5)),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: const Text(
+                        'الإجازة القادمة',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      nextHoliday.title,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'متبقي ${nextHoliday.daysRemaining} يوم',
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFFBBF24),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children: [
+                              const Text('البداية', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                              const SizedBox(height: 2),
+                              Text(
+                                isHijri ? nextHoliday.hijriStart : nextHoliday.gregorianStart,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          Container(width: 1, height: 26, color: Colors.white12),
+                          Column(
+                            children: [
+                              const Text('العودة للدراسة', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                              const SizedBox(height: 2),
+                              Text(
+                                isHijri ? nextHoliday.hijriReturn : nextHoliday.gregorianReturn,
+                                style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'جدول الإجازات الرسمية',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+
+              // بطاقات الإجازات مع الترميز اللوني
+              ...holidays.map((h) => HolidayTile(holiday: h, isHijri: isHijri)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-class HolidayEvent {
-  final int id;
-  final String name;
-  final DateTime startDate;
-  final String duration;
-  HolidayEvent({required this.id, required this.name, required this.startDate, required this.duration});
-}
+class HolidayTile extends StatelessWidget {
+  final Holiday holiday;
+  final bool isHijri;
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  final List<HolidayEvent> events = [
-    HolidayEvent(id: 1, name: "إجازة نهاية أسبوع مطولة", startDate: DateTime(2026, 10, 7), duration: "يومان"),
-    HolidayEvent(id: 2, name: "إجازة نهاية أسبوع مطولة", startDate: DateTime(2026, 11, 8), duration: "يوم واحد"),
-    HolidayEvent(id: 3, name: "إجازة منتصف الفصل الأول (الخريف)", startDate: DateTime(2026, 11, 19), duration: "10 أيام"),
-    HolidayEvent(id: 4, name: "إجازة منتصف العام الدراسي", startDate: DateTime(2027, 1, 7), duration: "10 أيام"),
-    HolidayEvent(id: 5, name: "إجازة نهاية أسبوع مطولة", startDate: DateTime(2027, 2, 7), duration: "يومان"),
-    HolidayEvent(id: 6, name: "إجازة يوم التأسيس", startDate: DateTime(2027, 2, 21), duration: "يومان"),
-    HolidayEvent(id: 7, name: "إجازة عيد الفطر المبارك", startDate: DateTime(2027, 2, 25), duration: "17 يوماً"),
-    HolidayEvent(id: 8, name: "إجازة نهاية أسبوع مطولة", startDate: DateTime(2027, 4, 15), duration: "يوم واحد"),
-    HolidayEvent(id: 9, name: "إجازة عيد الأضحى المبارك", startDate: DateTime(2027, 5, 6), duration: "17 يوماً"),
-    HolidayEvent(id: 10, name: "إجازة نهاية العام الدراسي 1448هـ", startDate: DateTime(2027, 6, 17), duration: "إجازة نهاية العام"),
-  ];
-
-  List<int> subscribedIds = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _initPermissionsAndPrefs();
-  }
-
-  Future<void> _initPermissionsAndPrefs() async {
-    final android = flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    await android?.requestNotificationsPermission();
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      subscribedIds = prefs.getStringList('sub_ids')?.map((e) => int.parse(e)).toList() ?? [];
-    });
-  }
-
-  Future<void> _toggleAlert(HolidayEvent event) async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      if (subscribedIds.contains(event.id)) {
-        subscribedIds.remove(event.id);
-        flutterLocalNotificationsPlugin.cancel(event.id);
-      } else {
-        subscribedIds.add(event.id);
-        _scheduleAlert(event);
-      }
-    });
-    await prefs.setStringList('sub_ids', subscribedIds.map((e) => e.toString()).toList());
-  }
-
-  Future<void> _scheduleAlert(HolidayEvent event) async {
-    final scheduledDate = tz.TZDateTime.local(event.startDate.year, event.startDate.month, event.startDate.day, 8, 0);
-    if (scheduledDate.isAfter(tz.TZDateTime.now(tz.local))) {
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        event.id,
-        'تذكير بالإجازة 🌴',
-        'اليوم تبدأ ${event.name} ومدتها ${event.duration}. إجازة سعيدة!',
-        scheduledDate,
-        const NotificationDetails(
-          android: AndroidNotificationDetails('academic_channel', 'إشعارات التقويم الأكاديمي', importance: Importance.max, priority: Priority.high),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    }
-  }
+  const HolidayTile({super.key, required this.holiday, required this.isHijri});
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    HolidayEvent? nextEvent;
-    int minDays = 9999;
-    for (var ev in events) {
-      final diff = ev.startDate.difference(today).inDays;
-      if (diff >= 0 && diff < minDays) {
-        minDays = diff;
-        nextEvent = ev;
-      }
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        centerTitle: true,
-        title: const Text('التقويم الأكاديمي 1448 - 1449هـ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(
+          right: BorderSide(color: holiday.color, width: 4.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      body: ListView(
+      child: Padding(
         padding: const EdgeInsets.all(16),
-        children: [
-          if (nextEvent != null)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1B4B),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.5)),
-              ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.white38),
+              onPressed: () {},
+            ),
+            const SizedBox(width: 8),
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                    child: const Text('الإجازة القادمة', style: TextStyle(color: Color(0xFFA5B4FC), fontSize: 12)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          holiday.title,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: holiday.color.withOpacity(0.14),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          holiday.typeName,
+                          style: TextStyle(
+                            color: holiday.color,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Text(nextEvent.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  Text(minDays == 0 ? 'اليوم!' : 'متبقي $minDays يوم', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFFF59E0B))),
-                  const SizedBox(height: 10),
-                  Text('المدة: ${nextEvent.duration}  •  البداية: ${nextEvent.startDate.toString().split(' ')[0]}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(
+                    'البدء: ${isHijri ? holiday.hijriStart : holiday.gregorianStart}   •   المدة: ${holiday.duration}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(Icons.school_outlined, color: Color(0xFF34D399), size: 15),
+                      const SizedBox(width: 5),
+                      Text(
+                        'العودة: ${isHijri ? holiday.hijriReturn : holiday.gregorianReturn}',
+                        style: const TextStyle(
+                          color: Color(0xFF34D399),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'متبقي ${holiday.daysRemaining} يوم',
+                    style: const TextStyle(
+                      color: Color(0xFFFBBF24),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
-          const SizedBox(height: 18),
-          const Text('جدول الإجازات الرسمية', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          ...events.map((ev) {
-            final isSubbed = subscribedIds.contains(ev.id);
-            final diffDays = ev.startDate.difference(today).inDays;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: isSubbed ? const Color(0xFF818CF8) : const Color(0xFF1E293B), width: isSubbed ? 2 : 1),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(ev.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 4),
-                        Text('التاريخ: ${ev.startDate.toString().split(' ')[0]}  •  المدة: ${ev.duration}', style: const TextStyle(color: Colors.white60, fontSize: 12)),
-                        const SizedBox(height: 6),
-                        Text(
-                          diffDays > 0 ? 'متبقي $diffDays يوم' : (diffDays == 0 ? 'تبدأ اليوم' : 'انتهت'),
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: diffDays >= 0 ? const Color(0xFFF59E0B) : Colors.white38),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(isSubbed ? Icons.notifications_active : Icons.notifications_none, color: isSubbed ? const Color(0xFFF59E0B) : Colors.white54),
-                    onPressed: () => _toggleAlert(ev),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
+          ],
+        ),
       ),
     );
   }
