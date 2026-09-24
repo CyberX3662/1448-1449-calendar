@@ -25,55 +25,31 @@ jobs:
           flutter-version: '3.22.2'
           channel: 'stable'
 
-      - name: Recreate Clean Android Project
+      - name: Build Clean App From Scratch
         run: |
-          rm -rf android
-          flutter create --platforms=android --project-name academic_calendar --org com.academic .
+          cd ..
+          rm -rf clean_app
+          flutter create --org com.academic --platforms=android clean_app
+          cd clean_app
 
-      - name: Configure Android Permissions
-        run: |
-          cat << 'XML' > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-              <uses-permission android:name="android.permission.VIBRATE"/>
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-              <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-              <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-              <application
-                  android:label="التقويم الأكاديمي"
-                  android:name="${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" android:exported="false">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                      </intent-filter>
-                  </receiver>
-                  <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" android:exported="false" />
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          XML
+          # إضافة الحزم
+          flutter pub add flutter_local_notifications timezone shared_preferences
 
-      - name: Install Dependencies
-        run: flutter pub get
+          # نسخ كود واجهة التطبيق
+          cp -f $GITHUB_WORKSPACE/lib/main.dart lib/main.dart
 
-      - name: Build Android APK
-        run: flutter build apk --debug
+          # ضبط الأذونات الرسمية داخل AndroidManifest النظيف
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>\n    <uses-permission android:name="android.permission.VIBRATE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>' android/app/src/main/AndroidManifest.xml
+
+          # البناء المباشر
+          flutter build apk --debug
+
+          # نسخ ملف الـ APK النهائي لمنطقة الرفع
+          mkdir -p $GITHUB_WORKSPACE/output
+          cp build/app/outputs/flutter-apk/app-debug.apk $GITHUB_WORKSPACE/output/Academic-Calendar.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Academic-Calendar-APK
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: output/Academic-Calendar.apk
